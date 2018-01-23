@@ -9,6 +9,12 @@ router.post('/', function(req, res, next) {
     var user = User({
         mobile:mobile
     });
+    User.find({mobile : mobile} , function(err , user) {
+        user.forEach( function (doc) {
+            doc.remove();
+            console.log("removed");
+        });
+    });
     user.save(function (err , user) {
         if(err) {
             return res.json({

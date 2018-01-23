@@ -13,13 +13,13 @@ router.post('/', function(req, res, next) {
 	try {
 		parsed = JSON.parse(parsed);
 	}catch(err) {
-		console.log(err);
+		// console.log(err);
 	}
     var mobile = [];
     for(var x in parsed){
 	  mobile.push(parsed[x]);
     }
-    console.log(mobile.toString());
+    console.log(parsed);
     //
     User.find({})
 		.where('mobile').in(mobile)
