@@ -14,7 +14,7 @@ module.exports = function(io) {
             receiver: receiver,
             sender : sender
         };
-        io.emit('send-message', msg);
+        io.to(receiver).emit('send-message', msg);
         var panding = pandingMessages({
             mobile: receiver,
             message: message,

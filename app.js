@@ -6,12 +6,16 @@ var bodyParser = require('body-parser');
 var socket_io = require( "socket.io" );
 var pandingMessages = require('./model/pandingmessages');
 var mongoose = require('mongoose');
-mongoose.connect('mongodb://localhost/chat');
 var sent = 400;
-
 var cons = require('consolidate');
 var app = express();
 var io = socket_io();
+
+
+var connections =  new Map(); 
+var connectionSocket =  new Map(); 
+
+mongoose.connect('mongodb://localhost/chat');
 app.io = io;
 
 var index = require('./routes/index');
@@ -23,44 +27,43 @@ var matchcontact = require('./routes/matchcontact');
 
 io.on("connection", function(socket) {
     console.log( "A user connected" );
+    socket.on('join', function(data){
+        console.log("user joined " + data);
+        socket.join(data);
+        connections.set(data, socket); 
+        connectionSocket.set(socket , data);
+    });
     socket.on('disconnect', function(){
+        var numberToRemove = connectionSocket.get(socket);
+        connectionSocket.delete(socket);
+        connections.delete(numberToRemove);
         console.log('user disconnected');
     });
-    socket.on("receive-message" , function(data){
-        console.log(data);
-        //  var msg = {
-        //     message: message,
-        //     receiver: receiver,
-        //     sender : sender
-        // };
-        io.emit('send-message', data);
-        // var panding = pandingMessages({
-        //     mobile: receiver,
-        //     message: message,
-        //     sender : sender
-        // });
-        // panding.save(function (err) {
-        //     if (err) console.log(err);
-        //     console.log('User saved successfully!');
-        // });
+    socket.on("sent-by-device" , function(data){
+        console.log(data, connections.size,connections.has(data.receiver.toString()));
+        if(connections.has(data.receiver.toString())){
+          io.to(data.receiver).emit('sent-by-server',data);
+        }else {
+           var panding = pandingMessages({
+                    mobile:data.receiver,
+                    sender: data.sender,
+                    message: data.message,
+                    message_type: "text",
+                    media_type : data.media_type
+            });
+          panding.save(function (err) {
+            if (err) console.log(err);
+              console.log('Panding msgs saved successfully!');
+          });
+        }
     });
 });
 
-// view engine setup
-
-app.engine('html', cons.swig);
-app.set('views', path.join(__dirname, 'views'));
-app.set('view engine', 'html');
-
-// uncomment after placing your favicon in /public
-//app.use(favicon(path.join(__dirname, 'public', 'favicon.ico')));
 app.use(logger('dev'));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
-
-
 
 app.use('/', index);
 app.use('/sendmessage', sendmessage);
@@ -69,21 +72,15 @@ app.use('/signup', signup);
 app.use('/sendotp', sendotp);
 app.use('/matchcontact', matchcontact);
 
-
-// catch 404 and forward to error handler
 app.use(function(req, res, next) {
   var err = new Error('Not Found');
   err.status = 404;
   next(err);
 });
 
-// error handler
 app.use(function(err, req, res, next) {
-  // set locals, only providing error in development
   res.locals.message = err.message;
   res.locals.error = req.app.get('env') === 'development' ? err : {};
-
-  // render the error page
   res.status(err.status || 500);
   res.render('error');
 });
